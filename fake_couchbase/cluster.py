@@ -17,6 +17,7 @@ class Cluster(ClusterLogic):
         self._connected = False
         self._default_serializer = DefaultJsonSerializer()
         self._transcoder = JSONTranscoder()
+        self._connect()
 
     def close(self):
         self._connected = False
@@ -74,5 +75,9 @@ class Cluster(ClusterLogic):
     def eventing_functions(self):
         pass
 
-    def connect(self, connstr, *options, **kwargs):
+    def _connect(self):
         self._connected = True
+
+    @property
+    def connected(self):
+        return self._connected

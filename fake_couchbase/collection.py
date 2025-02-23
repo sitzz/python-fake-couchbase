@@ -15,18 +15,19 @@ from couchbase.result import (
 from fake_couchbase._datetime_hack import utcnow
 from fake_couchbase.store import Store
 
+_STORE = Store()
+
 
 class Collection(CollectionLogic):
     def __init__(self, scope, name):
         super().__init__(scope, name)
         self._scope = scope
-        self._name = name
-        self._collection_name = f"{scope.name}-{name}"
-        self._store = Store()
+        self._collection_name = name
+        self._store_name = f"{scope.bucket_name}-{scope.name}-{name}"
 
     def get(self, key, *opts, **kwargs):
         res = result()
-        res.raw_result = self._store.get(self._collection_name, key)
+        res.raw_result = _STORE.get(self._store_name, key)
         return GetResult(res)
 
     def get_multi(self, keys, *opts, **kwargs):
@@ -35,7 +36,7 @@ class Collection(CollectionLogic):
         docs = {}
         for key in keys:
             tmp_res = result()
-            tmp_res.raw_result = self._store.get(self._collection_name, key)
+            tmp_res.raw_result = _STORE.get(self._store_name, key)
             docs[key] = tmp_res
             del tmp_res
 
@@ -44,14 +45,14 @@ class Collection(CollectionLogic):
 
     def exists(self, key, *opts, **kwargs):
         res = result()
-        res.raw_result = self._store.get(self._collection_name, key)
+        res.raw_result = _STORE.get(self._store_name, key)
         return ExistsResult(res)
 
     def insert(self, key, value, *opts, **kwargs):
         expiry = self._get_expiry(**kwargs)
         res = result()
         try:
-            self._store.insert(self._collection_name, key, value, expiry)
+            _STORE.insert(self._store_name, key, value, expiry)
             res.raw_result = {"cas": time_ns(), "key": key}
         except Exception as _exc:
             raise _exc
@@ -72,7 +73,7 @@ class Collection(CollectionLogic):
                 doc_expiry = expiry
 
             try:
-                self._store.insert(self._collection_name, key, doc, doc_expiry)
+                _STORE.insert(self._store_name, key, doc, doc_expiry)
                 key_res.raw_result = {"cas": time_ns(), "key": key}
             except Exception as _exc:
                 all_ok = False
@@ -89,7 +90,7 @@ class Collection(CollectionLogic):
         expiry = self._get_expiry(**kwargs)
         res = result()
         try:
-            self._store.upsert(self._collection_name, key, value, expiry)
+            _STORE.upsert(self._store_name, key, value, expiry)
             res.raw_result = {"cas": time_ns(), "key": key}
         except Exception as _exc:
             raise _exc
@@ -110,7 +111,7 @@ class Collection(CollectionLogic):
                 doc_expiry = expiry
 
             try:
-                self._store.upsert(self._collection_name, key, doc, doc_expiry)
+                _STORE.upsert(self._store_name, key, doc, doc_expiry)
                 key_res.raw_result = {"cas": time_ns(), "key": key}
             except Exception as _exc:
                 all_ok = False
@@ -127,17 +128,44 @@ class Collection(CollectionLogic):
         expiry = self._get_expiry(**kwargs)
         res = result()
         try:
-            self._store.replace(self._collection_name, key, value, expiry)
+            _STORE.replace(self._store_name, key, value, expiry)
             res.raw_result = {"cas": time_ns(), "key": key}
         except Exception as _exc:
             raise _exc
 
         return MutationResult(res)
 
+    def replace_multi(self, keys_and_docs, *opts, **kwargs):
+        expiry = self._get_expiry(**kwargs)
+        return_exceptions = self._get_kwarg("return_exceptions", kwargs, True)
+        per_key_options = kwargs.get("per_key_options", {})
+        all_ok = True
+        ops_res = {}
+        for key, doc in keys_and_docs.items():
+            key_res = result()
+            if key in per_key_options:
+                doc_expiry = self._get_expiry(**per_key_options[key])
+            else:
+                doc_expiry = expiry
+
+            try:
+                _STORE.replace(self._store_name, key, doc, doc_expiry)
+                key_res.raw_result = {"cas": time_ns(), "key": key}
+            except Exception as _exc:
+                all_ok = False
+                key_res.raw_result = _exc
+
+            ops_res[key] = key_res
+
+        ops_res["all_okay"] = all_ok
+        res = result()
+        res.raw_result = ops_res
+        return MultiMutationResult(res, return_exceptions)
+
     def remove(self, key, *opts, **kwargs):
         res = result()
         try:
-            self._store.remove(self._collection_name, key)
+            _STORE.remove(self._store_name, key)
         except Exception as _exc:
             raise _exc
 
@@ -169,7 +197,7 @@ class Collection(CollectionLogic):
         expiry = self._get_expiry(**kwargs)
         res = result()
         try:
-            self._store.touch(self._collection_name, key, expiry)
+            _STORE.touch(self._store_name, key, expiry)
             res.raw_result = {"cas": time_ns(), "key": key}
         except Exception as _exc:
             raise _exc
@@ -187,13 +215,13 @@ class Collection(CollectionLogic):
         lock_time = self._get_kwarg("lock_time", kwargs)
         try:
             res = self.get(key, GetOptions(), **kwargs)
-            self._store.lock(self._collection_name, key, lock_time)
+            _STORE.lock(self._store_name, key, lock_time)
             return res
         except Exception as _exc:
             raise _exc
 
     def unlock(self, key, cas, *opts, **kwargs):
-        self._store.unlock(self._collection_name, key)
+        _STORE.unlock(self._store_name, key)
 
     def lookup_in(self, key, spec, *opts, **kwargs):
         document = self.get(key, *opts, **kwargs)
