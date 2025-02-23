@@ -10,6 +10,8 @@ from couchbase.exceptions import (
 class Store:
     def __init__(self):
         self._documents = {}
+        self._indexes = {}
+        self._indexed_documents = {}
 
     def insert(self, collection, key, value, expiry):
         if self.exists(collection, key):
@@ -57,6 +59,20 @@ class Store:
         self._add(collection, key, document["value"], document["expiry"])
         return True
 
+    def add_index(self, collection, name, columns):
+        self._indexes[collection][name] = columns
+
+        if collection not in self._indexed_documents:
+            self._indexed_documents[collection] = {}
+        if name not in self._indexed_documents[collection]:
+            self._indexed_documents[collection][name] = set()
+
+        for key, doc in self._documents[collection].items():
+            if not all([col in doc for col in columns]):
+                continue
+
+            self._indexed_documents[collection][name].add(key)
+
     def _add(self, collection, key, value, expiry, lock=0):
         if collection not in self._documents:
             self._documents[collection] = {}
@@ -67,6 +83,15 @@ class Store:
             "locked": lock,
             "exists": True,
         }
+
+        if collection not in self._indexes:
+            return
+
+        for index, columns in self._indexes[collection].items():
+            if not all([col in value for col in columns]):
+                continue
+
+            self._indexed_documents[collection][index].add(key)
 
     def _get(self, collection, key):
         if collection not in self._documents or key not in self._documents[collection]:
@@ -94,3 +119,9 @@ class Store:
             raise DocumentNotFoundException
 
         del self._documents[collection][key]
+
+        if collection not in self._indexes:
+            return
+
+        for index in self._indexes[collection].keys():
+            self._indexed_documents[collection][index].discard(key)
