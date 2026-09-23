@@ -1,1 +1,6 @@
-couchbase>=4.0.0
+couchbase>=4.1.9,<4.6.0; python_version == "3.9"
+couchbase>=4.1.9,<4.7.0; python_version == "3.10"
+couchbase>=4.1.9,<4.7.0; python_version == "3.11"
+couchbase>=4.3.2,<4.70.0; python_version == "3.12"
+couchbase>=4.3.4,<4.7.0; python_version == "3.13"
+couchbase>=4.6.0,<4.7.0; python_version >= "3.14"
