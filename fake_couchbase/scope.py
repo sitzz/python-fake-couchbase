@@ -1,11 +1,14 @@
-from couchbase.logic.scope import ScopeLogic
-
+from fake_couchbase._compat import ScopeBase
 from fake_couchbase.collection import Collection
 
 
-class Scope(ScopeLogic):
+class Scope(ScopeBase):
     def __init__(self, bucket, scope_name):
         super().__init__(bucket, scope_name)
+
+    @staticmethod
+    def default_name():
+        return "_default"
 
     def collection(self, name):
         return Collection(self, name)

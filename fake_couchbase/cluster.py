@@ -3,15 +3,14 @@ from time import sleep, time
 from random import randint
 
 from couchbase.exceptions import UnAmbiguousTimeoutException
-from couchbase.logic.cluster import ClusterLogic
 from couchbase.serializer import DefaultJsonSerializer
 from couchbase.transcoder import JSONTranscoder
 
-from fake_couchbase._datetime_hack import utcnow
+from fake_couchbase._compat import ClusterBase
 from fake_couchbase.bucket import Bucket
 
 
-class Cluster(ClusterLogic):
+class Cluster(ClusterBase):
     def __init__(self, connstr, *options, **kwargs):
         super().__init__(connstr, *options, **kwargs)
         self._connected = False
@@ -36,13 +35,13 @@ class Cluster(ClusterLogic):
 
     @staticmethod
     def wait_until_ready(timeout: timedelta, *opts, **kwargs):
-        cutoff = (utcnow() + timeout).timestamp()
+        cutoff = time() + timeout.total_seconds()
         wait = 1 / randint(100, 500)
         if time() + wait < cutoff:
             sleep(wait)
             return
 
-        sleep(timeout.seconds)
+        sleep(timeout.total_seconds())
         raise UnAmbiguousTimeoutException
 
     def query(self, statement, *options, **kwargs):

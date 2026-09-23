@@ -1,18 +1,15 @@
-from couchbase.logic.bucket import BucketLogic
-
+from fake_couchbase._compat import BucketBase
 from fake_couchbase.collection import Collection
 from fake_couchbase.scope import Scope
 
 
-class Bucket(BucketLogic):
+class Bucket(BucketBase):
     def __init__(self, cluster, bucket_name):
         super().__init__(cluster, bucket_name)
         self._connected = False
 
     def close(self):
-        if self.connected:
-            super()._open_or_close_bucket(open_bucket=False)
-            self._destroy_connection()
+        self._connected = False
 
     def default_scope(self):
         return self.scope(Scope.default_name())
@@ -41,3 +38,7 @@ class Bucket(BucketLogic):
     def view_indexes(self):
         # return ViewIndexManager(self.connection, self.name)
         pass
+
+    @property
+    def connected(self):
+        return self._connected
